@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AEGIS-SHIELD // Tactical Air Defense & Anti-Missile C2 Operations Center</title>
+  <link rel="stylesheet" href="styles.css">
+  <!-- Optional Three.js WebGL CDN (with automatic offline fallback to Canvas 3D) -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+</head>
+<body>
+
+  <!-- HEADER BAR -->
+  <header class="header-bar">
+    <div class="brand-section">
+      <div class="brand-logo">AEGIS-SHIELD</div>
+      <div class="system-badge">AMDS-V4 PRO // INDUSTRIAL CIWS</div>
+    </div>
+
+    <div id="defcon-banner" class="defcon-banner">
+      <span style="font-size: 16px;">⚠</span>
+      <span id="defcon-text" class="defcon-text">DEFCON 5 // SECTOR CLEAR</span>
+    </div>
+
+    <div class="header-telemetry">
+      <div><span>AZIMUTH:</span> <strong id="val-cur-az">90°</strong></div>
+      <div><span>MAGAZINE:</span> <strong id="val-interceptor-count">12/12</strong></div>
+      <div><span>LINK:</span> <strong id="val-link-status" style="color:var(--accent-green)">READY</strong></div>
+    </div>
+  </header>
+
+  <!-- MAIN TACTICAL VIEWPORT -->
+  <main class="tactical-viewport">
+
+    <!-- LEFT PANEL: SENSORS & FLIR FEED -->
+    <aside class="tactical-panel">
+      <div class="panel-header">
+        <span>RADAR TELEMETRY & FLIR</span>
+        <span style="color:var(--accent-green)">SYS.ON</span>
+      </div>
+      <div class="panel-body">
+
+        <!-- Sensor Card -->
+        <div class="sensor-status-card">
+          <div class="metric-row">
+            <span class="metric-label">RADAR SCANNER</span>
+            <span class="metric-value">DUAL-SERVO GIMBAL</span>
+          </div>
+          <div class="metric-row">
+            <span class="metric-label">DETECTION SENSOR</span>
+            <span class="metric-value">PULSE-ULTRASONIC / ToF</span>
+          </div>
+          <div class="metric-row">
+            <span class="metric-label">SCAN SECTOR</span>
+            <span class="metric-value">0° - 180° AZ (50 Hz)</span>
+          </div>
+          <div class="metric-row">
+            <span class="metric-label">ENGAGEMENT RADIUS</span>
+            <span class="metric-value">380 CM (SCALED)</span>
+          </div>
+          <div class="metric-row">
+            <span class="metric-label">FILTER ALGORITHM</span>
+            <span class="metric-value" style="color:var(--accent-cyan)">EKF (KALMAN 6-DoF)</span>
+          </div>
+        </div>
+
+        <!-- Simulated FLIR Camera Feed -->
+        <div>
+          <div style="font-size:10px; color:var(--text-muted); margin-bottom:4px; letter-spacing:1px;">OPTICAL / THERMAL FLIR SENSOR</div>
+          <div class="flir-viewport">
+            <div class="flir-crosshair"></div>
+            <div class="flir-overlay-text flir-top-left">FLIR IR-WFOV [30 FPS]</div>
+            <div class="flir-overlay-text flir-top-right">NFOV AUTO-TRACK</div>
+            <div class="flir-overlay-text flir-bottom-left">ZOOM: 4.2X // STABILIZED</div>
+          </div>
+        </div>
+
+        <!-- Rules of Engagement (ROE) -->
+        <div>
+          <div style="font-size:10px; color:var(--text-muted); margin-bottom:6px; letter-spacing:1px;">RULES OF ENGAGEMENT (R.O.E.)</div>
+          <div class="roe-selector">
+            <button class="roe-btn" data-roe="manual">
+              <span>MANUAL FIRE RELEASE</span>
+              <small>Operator Gated</small>
+            </button>
+            <button class="roe-btn" data-roe="semi">
+              <span>SEMI-AUTONOMOUS</span>
+              <small>Auto-Aim / Manual</small>
+            </button>
+            <button class="roe-btn active roe-auto" data-roe="auto">
+              <span>AUTONOMOUS CIWS</span>
+              <small>Iron Dome Mode</small>
+            </button>
+          </div>
+        </div>
+
+      </div>
+    </aside>
+
+    <!-- CENTER PANEL: 2D PPI & 3D BATTLEFIELD -->
+    <section class="tactical-panel center-theater">
+      <!-- View Mode Tabs -->
+      <div class="view-mode-tabs">
+        <button id="tab-2d" class="tab-btn active">2D PPI RADAR</button>
+        <button id="tab-3d" class="tab-btn">3D BATTLEFIELD THEATER</button>
+      </div>
+
+      <div class="radar-canvas-container">
+        <!-- 2D Canvas -->
+        <canvas id="radar2d-canvas"></canvas>
+        <!-- 3D Canvas -->
+        <canvas id="tactical3d-canvas" style="display:none;"></canvas>
+      </div>
+    </section>
+
+    <!-- RIGHT PANEL: TEWA & FIRE CONTROL -->
+    <aside class="tactical-panel">
+      <div class="panel-header">
+        <span>THREAT EVALUATION & FIRE CONTROL</span>
+        <span style="color:var(--accent-red)">ARMED</span>
+      </div>
+      <div class="panel-body">
+
+        <!-- Dynamic TEWA Target Matrix Card -->
+        <div id="threat-matrix-card" class="threat-matrix-card clear">
+          <!-- Populated dynamically by app.js -->
+        </div>
+
+        <!-- Fire Control Station -->
+        <div class="fire-control-box">
+          <div style="font-size:11px; font-weight:bold; color:var(--accent-cyan); letter-spacing:1px; margin-bottom:4px;">
+            COUNTERMEASURE LAUNCH SYSTEM
+          </div>
+
+          <button id="btn-fire" class="btn-fire-intercept">
+            ⚡ AUTHORIZE INTERCEPT [SPACE / F]
+          </button>
+
+          <div class="action-btn-row">
+            <button id="btn-laser" class="secondary-btn">🎯 TOGGLE LASER [L]</button>
+            <button id="btn-reset" class="secondary-btn">🔄 RESET TRACKS</button>
+          </div>
+
+          <button id="btn-estop" class="secondary-btn btn-estop">
+            🛑 EMERGENCY STOP (ESTOP) [ESC]
+          </button>
+        </div>
+
+      </div>
+    </aside>
+
+  </main>
+
+  <!-- BOTTOM CONTROLS & BLACKBOX TELEMETRY LOG -->
+  <footer class="bottom-dock">
+
+    <!-- Hardware Link & Scenario Injector -->
+    <div class="link-toolbar">
+      <div class="toolbar-row">
+        <button id="btn-connect-serial" class="serial-btn">CONNECT ARDUINO USB</button>
+        <select id="sel-baud" class="scenario-select" style="max-width: 100px;">
+          <option value="115200" selected>115200</option>
+          <option value="9600">9600</option>
+        </select>
+      </div>
+      <div class="toolbar-row">
+        <span style="font-size: 11px; color: var(--text-muted);">SCENARIO:</span>
+        <select id="sel-scenario" class="scenario-select">
+          <option value="ballistic">Scenario 1: High-Speed Ballistic Missile</option>
+          <option value="salvo">Scenario 2: Saturation Salvo (3 Missiles)</option>
+          <option value="cruise">Scenario 3: Low-Altitude Evasive Cruise</option>
+          <option value="hypersonic">Scenario 4: Hypersonic Strike (Mach 5+)</option>
+          <option value="clutter">Scenario 5: Environmental Clutter / Decoys</option>
+        </select>
+      </div>
+    </div>
+
+    <!-- Blackbox Event Stream Log -->
+    <div id="event-log-container" class="event-log-container">
+      <!-- Populated dynamically by app.js -->
+    </div>
+
+    <!-- Audio & Voice Options -->
+    <div class="audio-controls">
+      <label class="toggle-switch">
+        <span>TACTICAL AUDIO SFX</span>
+        <input type="checkbox" id="chk-sfx" checked>
+      </label>
+      <label class="toggle-switch">
+        <span>VOICE ANNUNCIATOR</span>
+        <input type="checkbox" id="chk-voice" checked>
+      </label>
+      <button id="btn-export-log" class="secondary-btn" style="padding: 4px 8px; margin-top: 4px;">
+        💾 EXPORT BLACKBOX TELEMETRY
+      </button>
+    </div>
+
+  </footer>
+
+  <!-- Scripts -->
+  <script src="audio_synth.js"></script>
+  <script src="simulation_engine.js"></script>
+  <script src="radar2d.js"></script>
+  <script src="tactical3d.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
